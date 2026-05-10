@@ -1,0 +1,70 @@
+# ============================================================
+# Dependencies
+# ============================================================
+/vendor
+/node_modules
+
+# ============================================================
+# Environment & secrets
+# ============================================================
+.env
+.env.*
+!.env.example
+/auth.json
+/storage/*.key
+
+# ============================================================
+# Laravel generated / runtime files
+# ============================================================
+/public/build
+/public/hot
+/public/storage
+/bootstrap/cache/*.php
+/storage/framework/cache/data/*
+/storage/framework/sessions/*
+/storage/framework/testing/*
+/storage/framework/views/*
+/storage/logs/*.log
+/storage/pail
+
+# ============================================================
+# API documentation (generated — run `php artisan api:export`)
+# ============================================================
+/public/api.json
+/storage/api-docs/openapi.json
+
+# ============================================================
+# Testing
+# ============================================================
+.phpunit.result.cache
+/.phpunit.cache
+/coverage
+
+# ============================================================
+# IDE & editor
+# ============================================================
+/.idea
+/.vscode
+/.zed
+/.nova
+/.cursor/
+/.codex
+/.phpactor.json
+_ide_helper.php
+_ide_helper_models.php
+.php-cs-fixer.cache
+
+# ============================================================
+# OS
+# ============================================================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ============================================================
+# Misc Laravel
+# ============================================================
+Homestead.json
+Homestead.yaml
+.env.backup
+.env.production
