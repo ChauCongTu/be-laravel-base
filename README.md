@@ -21,7 +21,14 @@ API backend cho ứng dụng LifeOS.
   - [Thêm một tính năng vào domain có sẵn](#thêm-một-tính-năng-vào-domain-có-sẵn)
   - [Thay thế implementation (ví dụ: đổi storage)](#thay-thế-implementation)
 - [API Endpoints](#api-endpoints)
-- [API Documentation](#api-documentation)
+- [OpenAPI / API Documentation](#openapi--api-documentation)
+  - [Cách Scramble hoạt động](#cách-scramble-hoạt-động)
+  - [Annotate đúng cách](#annotate-đúng-cách)
+  - [Xem docs UI (local)](#xem-docs-ui-local)
+  - [Export spec ra file](#export-spec-ra-file)
+  - [Truy cập spec qua API (production)](#truy-cập-spec-qua-api-production)
+  - [Tích hợp với Postman / Insomnia](#tích-hợp-với-postman--insomnia)
+  - [Workflow phát triển](#workflow-phát-triển)
 
 ---
 
@@ -542,41 +549,152 @@ Authorization: Bearer {token}
 
 ---
 
-## API Documentation
+## OpenAPI / API Documentation
 
-Project dùng [Scramble](https://scramble.dedoc.co/) để generate OpenAPI spec.
+Project dùng [Scramble](https://scramble.dedoc.co/) để tự động generate OpenAPI 3.1 spec từ source code — không cần viết annotation thủ công cho từng endpoint.
 
-**Export spec ra file:**
+---
+
+### Cách Scramble hoạt động
+
+Scramble phân tích static code của controller để suy ra:
+
+| Nguồn | Scramble suy ra |
+|---|---|
+| Return type hint / `@response` PHPDoc | Response schema |
+| `FormRequest::rules()` | Request body schema + validation rules |
+| Route parameters | Path parameters |
+| `abort()`, exception `@throws` | Error responses (404, 403, 422...) |
+| `->additional([...])` trên Resource | Extra top-level fields trong response |
+| `LengthAwarePaginator` | Paginated response với `data`, `meta`, `links` |
+
+**Không cần** viết `@OA\Get`, `@OA\Post` hay bất kỳ annotation OpenAPI nào.
+
+---
+
+### Annotate đúng cách
+
+**Paginated list endpoint** — dùng `@response` để Scramble biết đây là paginated collection:
+
+```php
+/**
+ * @response AnonymousResourceCollection<LengthAwarePaginator<TaskResource>>
+ */
+public function index(Request $request): AnonymousResourceCollection
+{
+    return TaskResource::collection(
+        $this->repository->paginateForUser($request->user()->id, $request->only([...]))
+    );
+}
+```
+
+**Resource nằm ngoài `App\Models`** — thêm `@mixin` để Scramble tìm đúng model:
+
+```php
+use App\Domains\Task\Models\Task;
+
+/**
+ * @mixin Task
+ */
+final class TaskResource extends JsonResource
+{
+    public function toArray(Request $request): array { ... }
+}
+```
+
+**Thêm mô tả cho field** — dùng PHPDoc inline trong `toArray()`:
+
+```php
+return [
+    'id'       => $this->id,
+    /**
+     * Trạng thái hiện tại của task.
+     * @example "todo"
+     */
+    'status'   => $this->status,
+    /** @format date-time */
+    'due_date' => $this->due_date?->toIso8601String(),
+];
+```
+
+**Document error responses** — thêm `@throws` để Scramble tự thêm response 404/403:
+
+```php
+/**
+ * @throws \Illuminate\Auth\Access\AuthorizationException
+ */
+public function show(Request $request, int $task): JsonResponse { ... }
+```
+
+**Override response type thủ công** khi cần:
+
+```php
+/**
+ * @response TaskResource
+ * @status 201
+ */
+public function store(CreateTaskRequest $request): JsonResponse { ... }
+```
+
+---
+
+### Xem docs UI (local)
+
+Scramble tích hợp sẵn Stoplight Elements UI tại:
+
+```
+http://localhost:8000/docs/api
+```
+
+> UI này chỉ accessible trong môi trường `local` theo mặc định (`RestrictedDocsAccess` middleware trong `config/scramble.php`).
+
+---
+
+### Export spec ra file
 
 ```bash
-php artisan api:export-docs
-# hoặc pretty-print
-php artisan api:export-docs --pretty
+# Export minified
+php artisan api:export
+
+# Export pretty-print (dễ đọc, dễ diff trên git)
+php artisan api:export --pretty
 ```
 
-File được lưu tại `storage/api-docs/openapi.json`.
+File được lưu tại `storage/api-docs/openapi.json` (đã gitignore — không commit file này).
 
-**Truy cập spec qua API** (yêu cầu HMAC authentication):
+Nên chạy lại sau mỗi khi thêm/sửa endpoint để giữ spec luôn up-to-date.
+
+---
+
+### Truy cập spec qua API (production)
+
+Endpoint `/api/v1/documentation/openapi.json` được bảo vệ bằng **HMAC-SHA256** — chỉ client có API key hợp lệ mới lấy được spec.
+
+**Bước 1 — Tạo API key**
 
 ```bash
-# 1. Tạo API key
-php artisan api:generate-key my_client
-
-# 2. Gọi endpoint với HMAC headers
-GET /api/v1/documentation/openapi.json
-Headers:
-  X-API-Key: ak_xxxxx
-  X-Timestamp: {unix_timestamp}
-  X-Signature: {hmac_sha256}
+php artisan api:generate-key postman
 ```
 
-**Signature được tính:**
+Output:
 
 ```
-HMAC-SHA256("{METHOD}\n{PATH}\n{TIMESTAMP}\n{BODY}", secret)
+Field   Value
+Name    postman
+Key     ak_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+Secret  xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-Ví dụ với PHP:
+> Lưu `Secret` ngay — không thể xem lại sau này.
+
+**Bước 2 — Tính signature**
+
+```
+string_to_sign = "{METHOD}\n{PATH}\n{TIMESTAMP}\n{BODY}"
+signature      = HMAC-SHA256(string_to_sign, secret)
+```
+
+Ví dụ PHP:
 
 ```php
 $method    = 'GET';
@@ -587,6 +705,63 @@ $body      = '';
 $signature = hash_hmac(
     'sha256',
     implode("\n", [$method, $path, $timestamp, $body]),
-    $secret
+    $secret,
 );
 ```
+
+Ví dụ JavaScript (Node.js):
+
+```js
+const crypto = require('crypto');
+
+const method    = 'GET';
+const path      = 'api/v1/documentation/openapi.json';
+const timestamp = Math.floor(Date.now() / 1000);
+const body      = '';
+
+const stringToSign = [method, path, timestamp, body].join('\n');
+const signature    = crypto
+    .createHmac('sha256', secret)
+    .update(stringToSign)
+    .digest('hex');
+```
+
+**Bước 3 — Gọi endpoint**
+
+```bash
+curl https://your-domain.com/api/v1/documentation/openapi.json \
+  -H "X-API-Key: ak_xxx" \
+  -H "X-Timestamp: 1748000000" \
+  -H "X-Signature: abc123..."
+```
+
+> Timestamp phải trong vòng **5 phút** so với server time — bảo vệ chống replay attack.
+
+---
+
+### Tích hợp với Postman / Insomnia
+
+**Postman:**
+1. Import → Link → nhập URL endpoint spec (với headers HMAC)
+2. Hoặc export file `openapi.json` rồi import trực tiếp
+
+**Insomnia:**
+1. Import → From URL hoặc From File
+2. Chọn file `storage/api-docs/openapi.json`
+
+---
+
+### Workflow phát triển
+
+```
+1. Thêm/sửa endpoint trong controller
+        ↓
+2. Chạy: php artisan api:export --pretty
+        ↓
+3. Kiểm tra diff của storage/api-docs/openapi.json
+   (file này không commit nhưng dùng để review locally)
+        ↓
+4. Mở http://localhost:8000/docs/api để xem UI
+```
+
+Nếu muốn commit spec vào repo (ví dụ để CI/CD dùng), bỏ `storage/api-docs/openapi.json` khỏi `.gitignore`.
