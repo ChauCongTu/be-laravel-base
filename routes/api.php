@@ -18,23 +18,24 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function (): void {
 
-    // -------------------------
+    // -------------------------------------------------------------------------
     // Auth — Public endpoints
-    // -------------------------
+    // -------------------------------------------------------------------------
     Route::prefix('auth')->name('auth.')->group(function (): void {
         Route::post('register', [AuthController::class, 'register'])->name('register');
-        Route::post('login', [AuthController::class, 'login'])->name('login');
+        Route::post('login',    [AuthController::class, 'login'])->name('login');
+        Route::post('refresh',  [AuthController::class, 'refresh'])->name('refresh');
     });
 
-    // -------------------------
+    // -------------------------------------------------------------------------
     // API Documentation (HMAC-signed, served from storage)
-    // -------------------------
+    // -------------------------------------------------------------------------
     Route::middleware(VerifyApiDocumentationAccess::class)
         ->get('documentation/openapi.json', function () {
             $path = storage_path('api-docs/openapi.json');
 
             if (!file_exists($path)) {
-                abort(404, 'OpenAPI documentation not found. Run: php artisan api:export-docs');
+                abort(404, 'OpenAPI documentation not found. Run: php artisan api:export');
             }
 
             return response()->file($path, [
@@ -43,20 +44,20 @@ Route::prefix('v1')->group(function (): void {
             ]);
         })->name('api.docs.openapi');
 
-    // -------------------------
-    // Protected endpoints
-    // -------------------------
-    Route::middleware('auth:sanctum')->group(function (): void {
+    // -------------------------------------------------------------------------
+    // Protected endpoints — Passport OAuth2
+    // -------------------------------------------------------------------------
+    Route::middleware('auth:api')->group(function (): void {
 
         // Auth — Authenticated endpoints
         Route::prefix('auth')->name('auth.')->group(function (): void {
-            Route::get('me', [AuthController::class, 'me'])->name('me');
-            Route::put('me', [AuthController::class, 'updateProfile'])->name('update-profile');
-            Route::post('avatar', [AuthController::class, 'uploadAvatar'])->name('upload-avatar');
-            Route::delete('avatar', [AuthController::class, 'deleteAvatar'])->name('delete-avatar');
-            Route::put('password', [AuthController::class, 'changePassword'])->name('change-password');
-            Route::post('logout', [AuthController::class, 'logout'])->name('logout');
-            Route::post('logout-all', [AuthController::class, 'logoutAll'])->name('logout-all');
+            Route::get('me',           [AuthController::class, 'me'])->name('me');
+            Route::put('me',           [AuthController::class, 'updateProfile'])->name('update-profile');
+            Route::post('avatar',      [AuthController::class, 'uploadAvatar'])->name('upload-avatar');
+            Route::delete('avatar',    [AuthController::class, 'deleteAvatar'])->name('delete-avatar');
+            Route::put('password',     [AuthController::class, 'changePassword'])->name('change-password');
+            Route::post('logout',      [AuthController::class, 'logout'])->name('logout');
+            Route::post('logout-all',  [AuthController::class, 'logoutAll'])->name('logout-all');
         });
 
         // Knowledge: Folders

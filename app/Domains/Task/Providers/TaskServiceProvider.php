@@ -17,4 +17,11 @@ final class TaskServiceProvider extends ServiceProvider
             EloquentTaskRepository::class,
         );
     }
+
+    public function boot(): void
+    {
+        $this->loadMigrationsFrom(
+            __DIR__ . '/../../Infrastructure/Database/Migrations'
+        );
+    }
 }

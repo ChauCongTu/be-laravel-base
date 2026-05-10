@@ -31,4 +31,11 @@ final class KnowledgeServiceProvider extends ServiceProvider
             EloquentSnippetRepository::class,
         );
     }
+
+    public function boot(): void
+    {
+        $this->loadMigrationsFrom(
+            __DIR__ . '/../../Infrastructure/Database/Migrations'
+        );
+    }
 }

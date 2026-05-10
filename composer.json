@@ -12,7 +12,7 @@
         "php": "^8.3",
         "dedoc/scramble": "*",
         "laravel/framework": "^13.0",
-        "laravel/sanctum": "*",
+        "laravel/passport": "*",
         "laravel/tinker": "^3.0"
     },
     "require-dev": {

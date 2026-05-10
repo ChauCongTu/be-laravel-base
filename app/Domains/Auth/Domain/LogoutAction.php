@@ -8,13 +8,30 @@ use App\Models\User;
 
 final readonly class LogoutAction
 {
+    /**
+     * Revoke the current access token (and its associated refresh token).
+     */
     public function execute(User $user): void
     {
-        $user->currentAccessToken()->delete();
+        $token = $user->token();
+
+        if ($token) {
+            // Revoke the access token
+            $token->revoke();
+
+            // Revoke the associated refresh token
+            $token->refreshTokens()->update(['revoked' => true]);
+        }
     }
 
+    /**
+     * Revoke all access tokens and refresh tokens for the user.
+     */
     public function executeAll(User $user): void
     {
-        $user->tokens()->delete();
+        foreach ($user->tokens as $token) {
+            $token->revoke();
+            $token->refreshTokens()->update(['revoked' => true]);
+        }
     }
 }

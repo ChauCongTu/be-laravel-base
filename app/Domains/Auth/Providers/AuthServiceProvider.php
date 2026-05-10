@@ -17,4 +17,11 @@ final class AuthServiceProvider extends ServiceProvider
             EloquentUserRepository::class,
         );
     }
+
+    public function boot(): void
+    {
+        $this->loadMigrationsFrom(
+            __DIR__ . '/../../Infrastructure/Database/Migrations'
+        );
+    }
 }
