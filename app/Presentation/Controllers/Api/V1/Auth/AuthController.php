@@ -17,6 +17,7 @@ use App\Domains\Auth\Requests\RegisterRequest;
 use App\Domains\Auth\Requests\UpdateProfileRequest;
 use App\Domains\Auth\Requests\UploadAvatarRequest;
 use App\Domains\Auth\Resources\UserResource;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -198,6 +199,17 @@ final class AuthController
         $this->logoutAction->executeAll($request->user());
 
         return response()->json(['message' => 'Logged out from all devices successfully.']);
+    }
+
+    /**
+     * GET /api/v1/auth/users
+     * 
+     */
+    public function index()
+    {
+        $users = User::get();
+
+        return UserResource::collection($users);
     }
 
     // =========================================================================

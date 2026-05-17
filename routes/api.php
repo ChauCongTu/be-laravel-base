@@ -58,6 +58,7 @@ Route::prefix('v1')->group(function (): void {
             Route::put('password',     [AuthController::class, 'changePassword'])->name('change-password');
             Route::post('logout',      [AuthController::class, 'logout'])->name('logout');
             Route::post('logout-all',  [AuthController::class, 'logoutAll'])->name('logout-all');
+            Route::get("/users", [AuthController::class, 'index'])->name('users.index');
         });
 
         // Knowledge: Folders

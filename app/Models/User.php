@@ -67,7 +67,7 @@ class User extends Authenticatable
             return $this->avatar;
         }
 
-        return config('app.url') . Storage::url($this->avatar);
+        return config('app.s3_url') . '/public/' . $this->avatar;
     }
 
     // -------------------------------------------------------------------------
